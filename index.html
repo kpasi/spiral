@@ -77,6 +77,24 @@
     .controls.hidden ~ #toggleBtn {
       display: flex;
     }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .actions button {
+      flex: 1;
+      padding: 6px 0;
+      border: 1px solid rgba(0,0,0,0.2);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.05);
+      color: #222;
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .actions button:active {
+      background: rgba(0,0,0,0.12);
+    }
   </style>
 </head>
 <body>
@@ -98,6 +116,10 @@
       <span>Rotate <input type="number" id="rotateNum" min="0" max="360" value="0" step="1">°</span>
       <input type="range" id="rotateRange" min="0" max="360" value="0" step="1">
     </label>
+    <div class="actions">
+      <button type="button" id="flipBtn">Flip</button>
+      <button type="button" id="copyBtn">Copy Image</button>
+    </div>
   </div>
   <svg viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg">
     <path id="spiral" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>
@@ -161,8 +183,53 @@
     drawSpiral('slider');
 
     const controls = document.getElementById('controls');
+    const svg = document.querySelector('svg');
+    let flipped = false;
+
     document.getElementById('hideBtn').addEventListener('click', () => controls.classList.add('hidden'));
     document.getElementById('toggleBtn').addEventListener('click', () => controls.classList.remove('hidden'));
+
+    document.getElementById('flipBtn').addEventListener('click', () => {
+      flipped = !flipped;
+      svg.style.transform = flipped ? 'scaleX(-1)' : '';
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const svgEl = svg.cloneNode(true);
+      svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      svgEl.removeAttribute('style');
+      const svgData = new XMLSerializer().serializeToString(svgEl);
+      const img = new Image();
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, 600, 600);
+        if (flipped) {
+          ctx.translate(600, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(img, 0, 0, 600, 600);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(async (pngBlob) => {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': pngBlob })
+            ]);
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy Image', 1500);
+          } catch (e) {
+            alert('Copy failed: ' + e.message);
+          }
+        }, 'image/png');
+      };
+      img.src = url;
+    });
   </script>
 </body>
 </html>
