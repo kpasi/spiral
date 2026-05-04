@@ -95,6 +95,43 @@
     .actions button:active {
       background: rgba(0,0,0,0.12);
     }
+    .spiral-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .spiral-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .spiral-item input[type="number"] {
+      width: 50px;
+    }
+    .spiral-item button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #888;
+      font-size: 16px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    .spiral-item button:hover {
+      color: #c00;
+    }
+    #addSpiralBtn {
+      align-self: flex-start;
+      background: none;
+      border: 1px solid rgba(0,0,0,0.2);
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #222;
+      font-family: system-ui, sans-serif;
+    }
   </style>
 </head>
 <body>
@@ -116,17 +153,22 @@
       <span>Rotate <input type="number" id="rotateNum" min="0" max="360" value="0" step="1">°</span>
       <input type="range" id="rotateRange" min="0" max="360" value="0" step="1">
     </label>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong style="font-size:13px;">Spirals</strong>
+      <button type="button" id="addSpiralBtn">+ Add</button>
+    </div>
+    <div class="spiral-list" id="spiralList"></div>
     <div class="actions">
       <button type="button" id="flipBtn">Flip</button>
       <button type="button" id="copyBtn">Copy Image</button>
     </div>
   </div>
-  <svg viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg">
-    <path id="spiral" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+  <svg id="svg" viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg">
   </svg>
   <button id="toggleBtn" title="Show controls">⚙</button>
   <script>
-    const path = document.getElementById('spiral');
+    const svg = document.getElementById('svg');
+    const spiralList = document.getElementById('spiralList');
     const gapSizeInput = document.getElementById('gapSize');
     const gapGainInput = document.getElementById('gapGain');
     const gapNum = document.getElementById('gapNum');
@@ -135,6 +177,67 @@
     const sizeNum = document.getElementById('sizeNum');
     const rotateRange = document.getElementById('rotateRange');
     const rotateNum = document.getElementById('rotateNum');
+
+    // Each entry: { offset: number, pathEl: SVGPathElement, el: HTMLElement }
+    const spirals = [];
+    let nextId = 0;
+
+    function addSpiral(offsetDeg = 0) {
+      const id = nextId++;
+      const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      pathEl.setAttribute('fill', 'none');
+      pathEl.setAttribute('stroke', '#000');
+      pathEl.setAttribute('stroke-width', '2');
+      pathEl.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(pathEl);
+
+      const item = document.createElement('div');
+      item.className = 'spiral-item';
+      item.innerHTML = `<span style="min-width:20px;">#${spirals.length + 1}</span>`
+        + `<input type="number" min="0" max="360" step="1" value="${offsetDeg}"> °`
+        + `<input type="range" min="0" max="360" step="1" value="${offsetDeg}" style="width:90px;">`
+        + `<button type="button" title="Remove">✕</button>`;
+      spiralList.appendChild(item);
+
+      const numInput = item.querySelector('input[type="number"]');
+      const rangeInput = item.querySelector('input[type="range"]');
+      const removeBtn = item.querySelector('button');
+
+      const entry = { id, offset: offsetDeg, pathEl, el: item };
+      spirals.push(entry);
+
+      numInput.addEventListener('input', () => {
+        rangeInput.value = numInput.value;
+        entry.offset = parseFloat(numInput.value) || 0;
+        drawSpiral('slider');
+      });
+      rangeInput.addEventListener('input', () => {
+        numInput.value = rangeInput.value;
+        entry.offset = parseFloat(rangeInput.value) || 0;
+        drawSpiral('slider');
+      });
+      removeBtn.addEventListener('click', () => {
+        const idx = spirals.indexOf(entry);
+        if (idx !== -1) spirals.splice(idx, 1);
+        pathEl.remove();
+        item.remove();
+        renumberSpirals();
+        drawSpiral('slider');
+      });
+
+      drawSpiral('slider');
+    }
+
+    function renumberSpirals() {
+      spirals.forEach((s, i) => {
+        s.el.querySelector('span').textContent = `#${i + 1}`;
+      });
+    }
+
+    document.getElementById('addSpiralBtn').addEventListener('click', () => {
+      const defaultOffset = spirals.length > 0 ? Math.round(360 / (spirals.length + 1)) : 0;
+      addSpiral(defaultOffset);
+    });
 
     function drawSpiral(source) {
       if (source === 'slider') {
@@ -150,26 +253,29 @@
       }
       const gapSize = parseFloat(gapSizeInput.value);
       const gapGain = parseFloat(gapGainInput.value);
-
       const maxRadius = parseFloat(sizeRange.value);
       const rotation = parseFloat(rotateRange.value) * Math.PI / 180;
       const pointsPerTurn = 360;
-      let d = '';
-      let i = 0;
 
-      while (true) {
-        const angle = (i / pointsPerTurn) * 2 * Math.PI + rotation;
-        const turn = i / pointsPerTurn;
-        // radius grows by gapSize per turn, plus gapGain acceleration
-        const radius = turn * gapSize + turn * turn * gapGain;
-        if (radius > maxRadius) break;
-        const x = radius * Math.cos(angle);
-        const y = radius * Math.sin(angle);
-        d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ',' + y.toFixed(2) + ' ';
-        i++;
+      function buildPath(offsetRad) {
+        let d = '';
+        let i = 0;
+        while (true) {
+          const angle = (i / pointsPerTurn) * 2 * Math.PI + rotation + offsetRad;
+          const turn = i / pointsPerTurn;
+          const radius = turn * gapSize + turn * turn * gapGain;
+          if (radius > maxRadius) break;
+          const x = radius * Math.cos(angle);
+          const y = radius * Math.sin(angle);
+          d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ',' + y.toFixed(2) + ' ';
+          i++;
+        }
+        return d;
       }
 
-      path.setAttribute('d', d);
+      spirals.forEach(s => {
+        s.pathEl.setAttribute('d', buildPath(s.offset * Math.PI / 180));
+      });
     }
 
     gapSizeInput.addEventListener('input', () => drawSpiral('slider'));
@@ -180,10 +286,11 @@
     sizeNum.addEventListener('input', () => drawSpiral('number'));
     rotateRange.addEventListener('input', () => drawSpiral('slider'));
     rotateNum.addEventListener('input', () => drawSpiral('number'));
-    drawSpiral('slider');
+
+    // Start with one spiral at 0°
+    addSpiral(0);
 
     const controls = document.getElementById('controls');
-    const svg = document.querySelector('svg');
     let flipped = false;
 
     document.getElementById('hideBtn').addEventListener('click', () => controls.classList.add('hidden'));
@@ -194,41 +301,46 @@
       svg.style.transform = flipped ? 'scaleX(-1)' : '';
     });
 
-    document.getElementById('copyBtn').addEventListener('click', async () => {
+    document.getElementById('copyBtn').addEventListener('click', () => {
       const svgEl = svg.cloneNode(true);
       svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      svgEl.setAttribute('width', '600');
+      svgEl.setAttribute('height', '600');
       svgEl.removeAttribute('style');
       const svgData = new XMLSerializer().serializeToString(svgEl);
-      const img = new Image();
-      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 600;
-        canvas.height = 600;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, 600, 600);
-        if (flipped) {
-          ctx.translate(600, 0);
-          ctx.scale(-1, 1);
-        }
-        ctx.drawImage(img, 0, 0, 600, 600);
-        URL.revokeObjectURL(url);
-        canvas.toBlob(async (pngBlob) => {
-          try {
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'image/png': pngBlob })
-            ]);
-            const btn = document.getElementById('copyBtn');
-            btn.textContent = 'Copied!';
-            setTimeout(() => btn.textContent = 'Copy Image', 1500);
-          } catch (e) {
-            alert('Copy failed: ' + e.message);
+      const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+
+      const pngPromise = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 600;
+          canvas.height = 600;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, 600, 600);
+          if (flipped) {
+            ctx.translate(600, 0);
+            ctx.scale(-1, 1);
           }
-        }, 'image/png');
-      };
-      img.src = url;
+          ctx.drawImage(img, 0, 0, 600, 600);
+          canvas.toBlob((pngBlob) => {
+            pngBlob ? resolve(pngBlob) : reject(new Error('Failed to create PNG'));
+          }, 'image/png');
+        };
+        img.onerror = () => reject(new Error('Failed to load SVG image'));
+        img.src = dataUrl;
+      });
+
+      navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': pngPromise })
+      ]).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy Image', 1500);
+      }).catch((e) => {
+        alert('Copy failed: ' + e.message);
+      });
     });
   </script>
 </body>
