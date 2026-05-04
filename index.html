@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spiral</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #fff;
+    }
+    svg {
+      width: 80vmin;
+      height: 80vmin;
+    }
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.07);
+      padding: 16px 20px;
+      border-radius: 10px;
+      color: #222;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .controls span {
+      display: flex;
+      justify-content: space-between;
+    }
+    .controls input[type="range"] {
+      width: 180px;
+    }
+    .controls input[type="number"] {
+      width: 50px;
+      background: rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,0,0,0.2);
+      border-radius: 4px;
+      color: #222;
+      padding: 2px 4px;
+      font-size: 13px;
+      text-align: right;
+    }
+    .controls.hidden {
+      display: none;
+    }
+    #toggleBtn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.07);
+      border: 1px solid rgba(0,0,0,0.15);
+      border-radius: 8px;
+      color: #222;
+      font-family: system-ui, sans-serif;
+      font-size: 20px;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .controls.hidden ~ #toggleBtn {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls" id="controls">
+    <button type="button" id="hideBtn" style="align-self:flex-end;background:none;border:none;cursor:pointer;font-size:18px;color:#222;padding:0;line-height:1;">✕</button>
+    <label>
+      <span>Gap Size <input type="number" id="gapNum" min="2" max="100" value="20" step="1"></span>
+      <input type="range" id="gapSize" min="2" max="100" value="20" step="1">
+    </label>
+    <label>
+      <span>Gap Gain <input type="number" id="gainNum" min="0" max="60" value="0" step="0.1"></span>
+      <input type="range" id="gapGain" min="0" max="60" value="0" step="0.1">
+    </label>
+    <label>
+      <span>Size <input type="number" id="sizeNum" min="10" max="280" value="280" step="1"></span>
+      <input type="range" id="sizeRange" min="10" max="400" value="280" step="1">
+    </label>
+    <label>
+      <span>Rotate <input type="number" id="rotateNum" min="0" max="360" value="0" step="1">°</span>
+      <input type="range" id="rotateRange" min="0" max="360" value="0" step="1">
+    </label>
+  </div>
+  <svg viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg">
+    <path id="spiral" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+  <button id="toggleBtn" title="Show controls">⚙</button>
+  <script>
+    const path = document.getElementById('spiral');
+    const gapSizeInput = document.getElementById('gapSize');
+    const gapGainInput = document.getElementById('gapGain');
+    const gapNum = document.getElementById('gapNum');
+    const gainNum = document.getElementById('gainNum');
+    const sizeRange = document.getElementById('sizeRange');
+    const sizeNum = document.getElementById('sizeNum');
+    const rotateRange = document.getElementById('rotateRange');
+    const rotateNum = document.getElementById('rotateNum');
+
+    function drawSpiral(source) {
+      if (source === 'slider') {
+        gapNum.value = gapSizeInput.value;
+        gainNum.value = parseFloat(gapGainInput.value).toFixed(1);
+        sizeNum.value = sizeRange.value;
+        rotateNum.value = rotateRange.value;
+      } else {
+        gapSizeInput.value = gapNum.value;
+        gapGainInput.value = gainNum.value;
+        sizeRange.value = sizeNum.value;
+        rotateRange.value = rotateNum.value;
+      }
+      const gapSize = parseFloat(gapSizeInput.value);
+      const gapGain = parseFloat(gapGainInput.value);
+
+      const maxRadius = parseFloat(sizeRange.value);
+      const rotation = parseFloat(rotateRange.value) * Math.PI / 180;
+      const pointsPerTurn = 360;
+      let d = '';
+      let i = 0;
+
+      while (true) {
+        const angle = (i / pointsPerTurn) * 2 * Math.PI + rotation;
+        const turn = i / pointsPerTurn;
+        // radius grows by gapSize per turn, plus gapGain acceleration
+        const radius = turn * gapSize + turn * turn * gapGain;
+        if (radius > maxRadius) break;
+        const x = radius * Math.cos(angle);
+        const y = radius * Math.sin(angle);
+        d += (i === 0 ? 'M' : 'L') + x.toFixed(2) + ',' + y.toFixed(2) + ' ';
+        i++;
+      }
+
+      path.setAttribute('d', d);
+    }
+
+    gapSizeInput.addEventListener('input', () => drawSpiral('slider'));
+    gapGainInput.addEventListener('input', () => drawSpiral('slider'));
+    gapNum.addEventListener('input', () => drawSpiral('number'));
+    gainNum.addEventListener('input', () => drawSpiral('number'));
+    sizeRange.addEventListener('input', () => drawSpiral('slider'));
+    sizeNum.addEventListener('input', () => drawSpiral('number'));
+    rotateRange.addEventListener('input', () => drawSpiral('slider'));
+    rotateNum.addEventListener('input', () => drawSpiral('number'));
+    drawSpiral('slider');
+
+    const controls = document.getElementById('controls');
+    document.getElementById('hideBtn').addEventListener('click', () => controls.classList.add('hidden'));
+    document.getElementById('toggleBtn').addEventListener('click', () => controls.classList.remove('hidden'));
+  </script>
+</body>
+</html>
