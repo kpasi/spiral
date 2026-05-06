@@ -95,6 +95,24 @@
     .actions button:active {
       background: rgba(0,0,0,0.12);
     }
+    .pm-btn {
+      background: rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,0,0,0.2);
+      border-radius: 4px;
+      color: #222;
+      font-size: 15px;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-family: system-ui, sans-serif;
+    }
+    .pm-btn:active {
+      background: rgba(0,0,0,0.12);
+    }
     .spiral-list {
       display: flex;
       flex-direction: column;
@@ -138,16 +156,16 @@
   <div class="controls" id="controls">
     <button type="button" id="hideBtn" style="align-self:flex-end;background:none;border:none;cursor:pointer;font-size:18px;color:#222;padding:0;line-height:1;">✕</button>
     <label>
-      <span>Gap Size <input type="number" id="gapNum" min="2" max="100" value="20" step="1"></span>
-      <input type="range" id="gapSize" min="2" max="100" value="20" step="1">
+      <span>Gap Size <input type="number" id="gapNum" min="2" max="200" value="20" step="1"></span>
+      <span style="display:flex;align-items:center;gap:4px;"><button type="button" class="pm-btn" data-target="gapSize" data-step="-5">−</button><input type="range" id="gapSize" min="2" max="200" value="20" step="1"><button type="button" class="pm-btn" data-target="gapSize" data-step="5">+</button></span>
     </label>
     <label>
-      <span>Gap Gain <input type="number" id="gainNum" min="0" max="60" value="0" step="0.1"></span>
-      <input type="range" id="gapGain" min="0" max="60" value="0" step="0.1">
+      <span>Gap Gain <input type="number" id="gainNum" min="0" max="100" value="0" step="0.1"></span>
+      <span style="display:flex;align-items:center;gap:4px;"><button type="button" class="pm-btn" data-target="gapGain" data-step="-5">−</button><input type="range" id="gapGain" min="0" max="100" value="0" step="0.1"><button type="button" class="pm-btn" data-target="gapGain" data-step="5">+</button></span>
     </label>
     <label>
-      <span>Size <input type="number" id="sizeNum" min="10" max="280" value="280" step="1"></span>
-      <input type="range" id="sizeRange" min="10" max="400" value="280" step="1">
+      <span>Size <input type="number" id="sizeNum" min="10" max="1000" value="280" step="1"></span>
+      <span style="display:flex;align-items:center;gap:4px;"><button type="button" class="pm-btn" data-target="sizeRange" data-step="-5">−</button><input type="range" id="sizeRange" min="10" max="1000" value="280" step="1"><button type="button" class="pm-btn" data-target="sizeRange" data-step="5">+</button></span>
     </label>
     <label>
       <span>Rotate <input type="number" id="rotateNum" min="0" max="360" value="0" step="1">°</span>
@@ -163,7 +181,7 @@
       <button type="button" id="copyBtn">Copy Image</button>
     </div>
   </div>
-  <svg id="svg" viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg">
+  <svg id="svg" viewBox="-500 -500 1000 1000" xmlns="http://www.w3.org/2000/svg">
   </svg>
   <button id="toggleBtn" title="Show controls">⚙</button>
   <script>
@@ -177,6 +195,17 @@
     const sizeNum = document.getElementById('sizeNum');
     const rotateRange = document.getElementById('rotateRange');
     const rotateNum = document.getElementById('rotateNum');
+
+    document.querySelectorAll('.pm-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.target);
+        const step = parseFloat(btn.dataset.step);
+        const min = parseFloat(target.min);
+        const max = parseFloat(target.max);
+        target.value = Math.min(max, Math.max(min, parseFloat(target.value) + step));
+        target.dispatchEvent(new Event('input'));
+      });
+    });
 
     // Each entry: { offset: number, pathEl: SVGPathElement, el: HTMLElement }
     const spirals = [];
@@ -304,8 +333,8 @@
     document.getElementById('copyBtn').addEventListener('click', () => {
       const svgEl = svg.cloneNode(true);
       svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      svgEl.setAttribute('width', '600');
-      svgEl.setAttribute('height', '600');
+      svgEl.setAttribute('width', '1000');
+      svgEl.setAttribute('height', '1000');
       svgEl.removeAttribute('style');
       const svgData = new XMLSerializer().serializeToString(svgEl);
       const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
@@ -314,16 +343,14 @@
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          canvas.width = 600;
-          canvas.height = 600;
+          canvas.width = 1000;
+          canvas.height = 1000;
           const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(0, 0, 600, 600);
           if (flipped) {
-            ctx.translate(600, 0);
+            ctx.translate(1000, 0);
             ctx.scale(-1, 1);
           }
-          ctx.drawImage(img, 0, 0, 600, 600);
+          ctx.drawImage(img, 0, 0, 1000, 1000);
           canvas.toBlob((pngBlob) => {
             pngBlob ? resolve(pngBlob) : reject(new Error('Failed to create PNG'));
           }, 'image/png');
